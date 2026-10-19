@@ -17,6 +17,10 @@ export function writeFasta(record: SequenceRecord): Promise<string> {
   return invoke<string>("write_fasta", { record });
 }
 
+export function saveTextFile(path: string, contents: string): Promise<void> {
+  return invoke<void>("save_text_file", { path, contents });
+}
+
 export function newRecord(name: string): Promise<SequenceRecord> {
   return invoke<SequenceRecord>("new_record", { name });
 }

@@ -20,6 +20,7 @@ interface ActionMenuBarProps {
   onNewRecord: () => void;
   onOpenFile: () => void;
   onSave: (format?: FileFormat) => void;
+  onSaveAs: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onEditSequence: () => void;
@@ -54,6 +55,7 @@ export default function ActionMenuBar({
   onNewRecord,
   onOpenFile,
   onSave,
+  onSaveAs,
   onUndo,
   onRedo,
   onEditSequence,
@@ -152,8 +154,16 @@ export default function ActionMenuBar({
                     disabled={disabled || !canEditSequence}
                     onClick={() => runAction(() => onSave())}
                   >
-                    Save document ({isDirty ? "changes" : "copy"}){" "}
+                    Save document {isDirty ? "(changes)" : ""}{" "}
                     <span>{saveFormat.toUpperCase()} · ⌘S</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={disabled || !canEditSequence}
+                    onClick={() => runAction(onSaveAs)}
+                  >
+                    Save As…
                   </button>
                   <button
                     type="button"

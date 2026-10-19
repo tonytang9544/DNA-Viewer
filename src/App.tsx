@@ -1,3 +1,4 @@
+import { save as chooseSavePath } from "@tauri-apps/plugin-dialog";
 import {
   type ChangeEvent,
   useCallback,
@@ -30,6 +31,7 @@ import {
   parseGenbank,
   replaceSequence,
   reverseComplement,
+  saveTextFile,
   updateFeature,
   writeFasta,
   writeGenbank,
@@ -412,6 +414,7 @@ function App() {
 
   async function saveDocument(
     format: FileFormat = activeDocument?.format ?? "genbank",
+    saveAs = false,
   ) {
     if (!activeDocument) return;
     try {
@@ -427,13 +430,34 @@ function App() {
         format === "genbank"
           ? await writeGenbank(recordToSave)
           : await writeFasta(recordToSave);
-      const blob = new Blob([contents], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${recordToSave.name || "sequence"}.${format === "genbank" ? "gb" : "fasta"}`;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const extension = format === "genbank" ? "gb" : "fasta";
+      const fileName = Array.from(recordToSave.name || "sequence")
+        .map((character) =>
+          character.charCodeAt(0) < 32 || '<>:"/\\|?*'.includes(character)
+            ? "_"
+            : character,
+        )
+        .join("")
+        .trim();
+      const path = await chooseSavePath({
+        title: saveAs
+          ? "Save sequence as"
+          : format === activeDocument.format
+            ? "Save sequence"
+            : "Export sequence",
+        defaultPath: `${fileName || "sequence"}.${extension}`,
+        filters: [
+          {
+            name: format === "genbank" ? "GenBank" : "FASTA",
+            extensions:
+              format === "genbank"
+                ? ["gb", "gbk", "genbank"]
+                : ["fasta", "fa", "fna"],
+          },
+        ],
+      });
+      if (!path) return;
+      await saveTextFile(path, contents);
       if (format === activeDocument.format) {
         setDocuments((current) =>
           current.map((item) =>
@@ -448,6 +472,10 @@ function App() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function saveDocumentAs() {
+    await saveDocument(activeDocument?.format ?? "genbank", true);
   }
 
   function closeDocument(id: string) {
@@ -857,6 +885,7 @@ function App() {
           onNewRecord={() => void createRecord()}
           onOpenFile={() => fileInput.current?.click()}
           onSave={(format) => void saveDocument(format)}
+          onSaveAs={() => void saveDocumentAs()}
           onUndo={() => changeHistory("undo")}
           onRedo={() => changeHistory("redo")}
           onEditSequence={() => setSequenceEditorOpen(true)}

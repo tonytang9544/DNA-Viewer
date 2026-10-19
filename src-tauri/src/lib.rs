@@ -86,8 +86,20 @@ fn delete_feature(record: Seq, index: usize) -> Result<Seq, AppError> {
     operations::delete_feature(record, index).map_err(AppError::Operation)
 }
 
+#[tauri::command]
+fn save_text_file(path: String, contents: String) -> Result<(), AppError> {
+    let path = std::path::PathBuf::from(path);
+    if !path.is_absolute() {
+        return Err(AppError::Operation(
+            "The save location must be an absolute path.".to_owned(),
+        ));
+    }
+    std::fs::write(path, contents).map_err(AppError::Io)
+}
+
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             parse_genbank,
             write_genbank,
@@ -98,7 +110,8 @@ pub fn run() {
             reverse_complement,
             add_feature,
             update_feature,
-            delete_feature
+            delete_feature,
+            save_text_file
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Molecular Cloning Studio");
@@ -108,6 +121,7 @@ pub fn run() {
 mod tests {
     use super::formats::{fasta, genbank};
     use super::operations;
+    use super::save_text_file;
     use gb_io::{
         reader::SeqReader,
         seq::{After, Before, Feature, Location},
@@ -258,5 +272,26 @@ mod tests {
         let updated = operations::add_feature(record, feature).expect("feature adds");
         assert_eq!(updated.features.len(), 1);
         assert_eq!(updated.features[0].location.to_gb_format(), "1..3");
+    }
+
+    #[test]
+    fn save_text_file_writes_to_the_selected_absolute_path() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock is after the epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "molecular-cloning-studio-{unique}-{}.gb",
+            std::process::id()
+        ));
+
+        save_text_file(path.to_string_lossy().into_owned(), "LOCUS".to_owned())
+            .expect("file should be written");
+
+        assert_eq!(
+            std::fs::read_to_string(&path).expect("file should exist"),
+            "LOCUS"
+        );
+        std::fs::remove_file(path).expect("temporary file should be removed");
     }
 }

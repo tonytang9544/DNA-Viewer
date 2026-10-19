@@ -32,7 +32,8 @@ npm run tauri build
 - View aligned forward and complementary strands with feature annotations in the SeqViz workspace, switching between linear, circular, or combined views. The standalone statistics panel is not currently exposed in this UI.
 - Select sequences in either direction, extend linear selections across viewer pages, and drag circular-map selections across the origin.
 - Use the left File, Edit, and View menus for document actions, editing tools, and linear/circular display modes; open documents are navigated from the top tab bar.
-- Export uses the selected GenBank or FASTA format and downloads the resulting file. Local recovery is not a replacement for an exported backup.
+- Save, Save As, and GenBank/FASTA exports open the native file chooser so the output location is explicit. Save As does not automatically replace the imported source file; the app does not retain its original path.
+- Local recovery is not a replacement for an exported backup.
 - Linear insertions and deletions update feature coordinates. Circular records currently support equal-length substitutions only; circular insertions and deletions are rejected explicitly.
 - Parsing, writing, editing, and recovery run locally; the app does not upload sequence data.
 - Additional records per file and third-party formats such as SnapGene `.dna` remain deferred compatibility work.
