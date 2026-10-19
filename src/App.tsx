@@ -1,22 +1,27 @@
 import {
   type ChangeEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import SequenceMap from "./components/SequenceMap";
+import DocumentTabs, { type OpenDocumentTab } from "./components/DocumentTabs";
+import FeatureEditorDialog, {
+  type FeatureDraft,
+} from "./components/FeatureEditorDialog";
+import FileMenu from "./components/FileMenu";
+import SequenceEditorDialog from "./components/SequenceEditorDialog";
+import SequenceWorkspace from "./components/SequenceWorkspace";
 import {
   type Feature,
-  featureLocationText,
   featureSegments,
   type Location,
   type SequenceRecord,
   sequenceText,
   simpleFeatureRange,
 } from "./lib/sequence";
+import { featureLabel } from "./lib/seqviz";
 import {
   addFeature,
   deleteFeature,
@@ -46,16 +51,6 @@ interface EditorDocument {
 interface RecoveryState {
   documents: EditorDocument[];
   error: string | null;
-}
-
-interface FeatureDraft {
-  index: number | null;
-  kind: string;
-  label: string;
-  start: string;
-  end: string;
-  reverse: boolean;
-  original: Feature | null;
 }
 
 const RECOVERY_KEY = "molecular-cloning-studio.recovery.v1";
@@ -255,19 +250,13 @@ function locationFromRange(
   return reverse ? { Complement: range } : range;
 }
 
-function featureLabel(feature: Feature): string {
-  return (
-    feature.qualifiers.find(([key]) =>
-      ["label", "gene", "product"].includes(key),
-    )?.[1] ?? feature.kind
-  );
-}
-
 function App() {
   const fileInput = useRef<HTMLInputElement>(null);
-  const sequenceInput = useRef<HTMLTextAreaElement>(null);
-  const findInput = useRef<HTMLInputElement>(null);
+  const shortcutHandler = useRef<(event: KeyboardEvent) => void>(() => {});
   const [recovery] = useState(loadRecovery);
+  const [showRecoveryNotice, setShowRecoveryNotice] = useState(
+    recovery.documents.length > 0,
+  );
   const [documents, setDocuments] = useState<EditorDocument[]>(
     recovery.documents,
   );
@@ -279,6 +268,8 @@ function App() {
   const [search, setSearch] = useState("");
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);
   const [featureDraft, setFeatureDraft] = useState<FeatureDraft | null>(null);
+  const [sequenceEditorOpen, setSequenceEditorOpen] = useState(false);
+  const [focusSearchRequest, setFocusSearchRequest] = useState(0);
   const [error, setError] = useState<string | null>(recovery.error);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -290,6 +281,22 @@ function App() {
     ? recordSnapshot(activeDocument.record) !== activeDocument.savedSnapshot ||
       sequenceDraft !== bases
     : false;
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => shortcutHandler.current(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+
+  useEffect(() => {
+    if (!showRecoveryNotice) return;
+    const timeout = window.setTimeout(() => setShowRecoveryNotice(false), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [showRecoveryNotice]);
+
+  useEffect(() => {
+    shortcutHandler.current = handleKeyDown;
+  });
 
   useEffect(() => {
     setSequenceDraft(recoveredSequenceDraft ?? bases);
@@ -315,8 +322,9 @@ function App() {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (
         documents.some(
-          ({ record: item, savedSnapshot }) =>
-            recordSnapshot(item) !== savedSnapshot,
+          ({ record: item, savedSnapshot, draftSequence }) =>
+            recordSnapshot(item) !== savedSnapshot ||
+            draftSequence !== undefined,
         ) ||
         (activeDocument !== null &&
           sequenceDraft !== sequenceText(activeDocument.record))
@@ -444,7 +452,8 @@ function App() {
     const closing = documents.find((item) => item.id === id);
     if (!closing) return;
     const hasDraft =
-      id === activeId && sequenceDraft !== sequenceText(closing.record);
+      closing.draftSequence !== undefined ||
+      (id === activeId && sequenceDraft !== sequenceText(closing.record));
     const isDirty =
       hasDraft || recordSnapshot(closing.record) !== closing.savedSnapshot;
     if (
@@ -573,9 +582,13 @@ function App() {
     );
   }
 
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+  function handleKeyDown(event: KeyboardEvent) {
     if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
     const key = event.key.toLowerCase();
+    const editingText =
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement;
+    if (editingText && !["s", "o", "f"].includes(key)) return;
     if (key === "s") {
       event.preventDefault();
       void saveDocument();
@@ -587,7 +600,7 @@ function App() {
       fileInput.current?.click();
     } else if (key === "f") {
       event.preventDefault();
-      findInput.current?.focus();
+      setFocusSearchRequest((current) => current + 1);
     } else if (key === "z" && event.shiftKey) {
       event.preventDefault();
       changeHistory("redo");
@@ -597,32 +610,12 @@ function App() {
     }
   }
 
-  function documentFeatureKey(feature: Feature, index: number): string {
-    return `${JSON.stringify(feature)}-${index}`;
-  }
-
-  function selectFeature(index: number) {
-    if (!record) return;
-    setFeatureDraft(null);
-    setSelectedFeature(index);
-    const feature = record.features[index];
-    const parts = featureSegments(feature.location);
-    if (parts.length === 0) {
-      setError("This feature has no local sequence coordinates to select.");
-      return;
-    }
-    const [segment] = parts;
-    const { start, end } = segment;
-    setSelection([start, end]);
-    setError(
-      parts.length > 1
-        ? "This feature has multiple segments; the first segment is selected."
-        : null,
-    );
-    requestAnimationFrame(() => {
-      sequenceInput.current?.focus();
-      sequenceInput.current?.setSelectionRange(start, end);
-    });
+  function handleViewerSelection(
+    range: [number, number],
+    featureIndex: number | null,
+  ) {
+    setSelection(range);
+    setSelectedFeature(featureIndex);
   }
 
   function startFeatureEdit(index: number) {
@@ -747,23 +740,54 @@ function App() {
     }
   }
 
-  function findMatch(direction: 1 | -1) {
+  async function deleteSelectedFeature() {
+    if (!activeDocument || selectedFeature === null || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await deleteFeature(activeDocument.record, selectedFeature);
+      updateRecord(activeDocument.id, next);
+      setSelectedFeature(null);
+      setSelection([0, 0]);
+    } catch (cause) {
+      showError(cause);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function updateSequenceDraft(draft: string) {
+    setSequenceDraft(draft);
+    if (!activeDocument) return;
+    setDocuments((current) =>
+      current.map((item) =>
+        item.id === activeDocument.id
+          ? {
+              ...item,
+              draftSequence: draft === bases ? undefined : draft,
+            }
+          : item,
+      ),
+    );
+  }
+
+  function discardSequenceDraft() {
+    updateSequenceDraft(bases);
+    setSequenceEditorOpen(false);
+  }
+
+  async function applySequenceDraft() {
+    const updated = await applySequenceEdit();
+    if (updated) setSequenceEditorOpen(false);
+  }
+
+  function findMatch() {
     if (!record || !search.trim()) return;
     const query = search.trim().toUpperCase();
     const haystack = sequenceDraft.toUpperCase();
-    const [start, end] = selection;
-    const from =
-      direction > 0 ? Math.max(end, start) : Math.min(start, end) - 1;
-    let match =
-      direction > 0
-        ? haystack.indexOf(query, from)
-        : haystack.lastIndexOf(query, Math.max(from, 0));
-    if (match < 0) {
-      match =
-        direction > 0
-          ? haystack.indexOf(query, 0)
-          : haystack.lastIndexOf(query);
-    }
+    const from = Math.max(selection[1], selection[0]);
+    let match = haystack.indexOf(query, from);
+    if (match < 0) match = haystack.indexOf(query, 0);
     if (match < 0) {
       setError(`No matches for "${search}".`);
       return;
@@ -771,600 +795,169 @@ function App() {
     setError(null);
     const next: [number, number] = [match, match + query.length];
     setSelection(next);
-    sequenceInput.current?.focus();
-    sequenceInput.current?.setSelectionRange(...next);
+    setSelectedFeature(null);
+    setError(null);
   }
 
-  const gcPercent = record?.seq.length
-    ? (record.seq.filter(
-        (base) => base === 71 || base === 67 || base === 103 || base === 99,
-      ).length /
-        record.seq.length) *
-      100
-    : 0;
   const editableSimpleFeature = featureDraft?.original
     ? simpleFeatureRange(featureDraft.original.location) !== null
     : true;
 
+  const documentTabs: OpenDocumentTab[] = documents.map((document) => ({
+    id: document.id,
+    name: document.record.name ?? "",
+    dirty:
+      recordSnapshot(document.record) !== document.savedSnapshot ||
+      document.draftSequence !== undefined,
+  }));
+  const canEditSequence = activeDocument !== null;
+  const canEditCurrentRecord =
+    activeDocument !== null && sequenceDraft === bases && !busy;
+
   return (
-    <main className="app-shell" onKeyDown={handleKeyDown}>
-      <header className="topbar">
-        <a
-          className="brand"
-          href="/"
-          aria-label="Molecular Cloning Studio home"
-        >
+    <div className="app-shell">
+      <aside className="sidebar" aria-label="Application actions">
+        <div className="sidebar-brand" aria-hidden="true">
           <span className="brand-mark" aria-hidden="true">
             <span />
             <span />
             <span />
           </span>
-          <span>Molecular Cloning Studio</span>
-        </a>
-        <div className="toolbar">
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={createRecord}
-            disabled={busy}
-          >
-            New record
-          </button>
-          <input
-            ref={fileInput}
-            className="visually-hidden"
-            type="file"
-            accept=".gb,.gbk,.genbank,.fa,.fasta,.fna"
-            onChange={openFile}
-            aria-label="Choose a GenBank or FASTA file"
-          />
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            disabled={busy}
-          >
-            Open file
-          </button>
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={() => changeHistory("undo")}
-            disabled={
-              !activeDocument?.undo.length || busy || sequenceDraft !== bases
-            }
-            aria-label="Undo"
-          >
-            Undo
-          </button>
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={() => changeHistory("redo")}
-            disabled={
-              !activeDocument?.redo.length || busy || sequenceDraft !== bases
-            }
-            aria-label="Redo"
-          >
-            Redo
-          </button>
-          <select
-            className="export-format"
-            value={activeDocument?.format ?? "genbank"}
-            onChange={(event) => {
-              const nextFormat = event.target.value as FileFormat;
-              if (activeDocument) {
-                setDocuments((current) =>
-                  current.map((item) =>
-                    item.id === activeDocument.id
-                      ? { ...item, format: nextFormat }
-                      : item,
-                  ),
-                );
-              }
-            }}
-            aria-label="Save format"
-            disabled={!activeDocument || busy}
-          >
-            <option value="genbank">GenBank</option>
-            <option value="fasta">FASTA</option>
-          </select>
-          <button
-            className="button button-primary"
-            type="button"
-            onClick={() => saveDocument()}
-            disabled={!activeDocument || busy}
-          >
-            Save {isDirty ? "changes" : "copy"}
-          </button>
         </div>
-      </header>
+        <input
+          ref={fileInput}
+          className="visually-hidden"
+          type="file"
+          accept=".gb,.gbk,.genbank,.fa,.fasta,.fna"
+          onChange={openFile}
+          aria-label="Choose a GenBank or FASTA file"
+        />
+        <FileMenu
+          disabled={busy}
+          canUndo={!!activeDocument?.undo.length && sequenceDraft === bases}
+          canRedo={!!activeDocument?.redo.length && sequenceDraft === bases}
+          canEditFeature={selectedFeature !== null && canEditCurrentRecord}
+          canAddFeature={
+            canEditCurrentRecord && !!record && record.seq.length > 0
+          }
+          canReverseComplement={canEditCurrentRecord}
+          canEditSequence={canEditSequence}
+          isDirty={isDirty}
+          saveFormat={activeDocument?.format ?? "genbank"}
+          searchQuery={search}
+          focusSearchRequest={focusSearchRequest}
+          onNewRecord={() => void createRecord()}
+          onOpenFile={() => fileInput.current?.click()}
+          onSave={(format) => void saveDocument(format)}
+          onUndo={() => changeHistory("undo")}
+          onRedo={() => changeHistory("redo")}
+          onEditSequence={() => setSequenceEditorOpen(true)}
+          onReverseComplement={() => void flipStrand()}
+          onAddFeature={startNewFeature}
+          onEditFeature={() => {
+            if (selectedFeature !== null) startFeatureEdit(selectedFeature);
+          }}
+          onDeleteFeature={() => void deleteSelectedFeature()}
+          onSearchChange={setSearch}
+          onFind={findMatch}
+        />
+        <div className="sidebar-footer" title="Documents are recovered locally">
+          <span className="status-dot" />
+          Local recovery
+        </div>
+      </aside>
 
-      <section className="workspace" aria-label="Sequence workspace">
-        <aside className="sidebar">
-          <div className="sidebar-heading">
-            <span className="eyebrow">DOCUMENTS</span>
-            <span className="sidebar-count">{documents.length}</span>
-          </div>
-          {documents.length ? (
-            documents.map((item) => {
-              const dirty =
-                recordSnapshot(item.record) !== item.savedSnapshot ||
-                item.draftSequence !== undefined;
-              return (
-                <div
-                  className={`document-tab${activeId === item.id ? " is-active" : ""}`}
-                  key={item.id}
-                >
-                  <button
-                    className="tab-select"
-                    type="button"
-                    onClick={() => activateDocument(item.id)}
-                    disabled={busy}
-                    aria-current={activeId === item.id ? "page" : undefined}
-                  >
-                    <span className="record-icon" aria-hidden="true">
-                      DNA
-                    </span>
-                    <span className="record-label">
-                      <strong>
-                        {item.record.name || "Untitled sequence"}
-                        {dirty ? " •" : ""}
-                      </strong>
-                      <small>
-                        {item.record.topology.toLowerCase()} ·{" "}
-                        {item.record.seq.length} bp
-                      </small>
-                    </span>
-                  </button>
-                  <button
-                    className="tab-close"
-                    type="button"
-                    aria-label={`Close ${item.record.name || "sequence"}`}
-                    onClick={() => closeDocument(item.id)}
-                    disabled={busy}
-                  >
-                    ×
-                  </button>
-                </div>
-              );
-            })
-          ) : (
-            <p className="sidebar-empty">
-              Create a record or open a sequence to begin.
-            </p>
-          )}
-          <div className="sidebar-footer">
-            <span className="status-dot" />
-            Local workspace · Recovery enabled
-          </div>
-        </aside>
-
-        <section className="document" aria-label="Sequence document">
-          {(error || storageError) && (
-            <div className="error-banner" role="alert">
-              <strong>
-                {error
-                  ? "Could not complete that action."
-                  : "Recovery warning."}
-              </strong>
-              <span>{error ?? storageError}</span>
-            </div>
-          )}
-          {recovery.documents.length > 0 && (
-            <div className="recovery-notice" role="status">
-              Restored {recovery.documents.length} document
-              {recovery.documents.length === 1 ? "" : "s"} from this device.
-            </div>
-          )}
-          {busy && (
-            <div className="busy-indicator" role="status">
-              Processing sequence…
-            </div>
-          )}
-          {!record ? (
-            <div className="empty-state">
-              <div className="empty-illustration" aria-hidden="true">
-                <span className="helix-line helix-line-a" />
-                <span className="helix-line helix-line-b" />
-                <span className="helix-rung rung-one" />
-                <span className="helix-rung rung-two" />
-                <span className="helix-rung rung-three" />
+      <div className="main-column">
+        <DocumentTabs
+          documents={documentTabs}
+          activeId={activeId}
+          disabled={busy}
+          onActivate={activateDocument}
+          onClose={closeDocument}
+        />
+        <main className="workspace" aria-label="Sequence workspace">
+          <section
+            className="document"
+            aria-label="Sequence document"
+            id={
+              activeDocument ? `document-panel-${activeDocument.id}` : undefined
+            }
+            role={activeDocument ? "tabpanel" : undefined}
+            aria-labelledby={
+              activeDocument ? `tab-${activeDocument.id}` : undefined
+            }
+          >
+            {(error || storageError) && (
+              <div className="error-banner" role="alert">
+                <strong>
+                  {error
+                    ? "Could not complete that action."
+                    : "Recovery warning."}
+                </strong>
+                <span>{error ?? storageError}</span>
               </div>
-              <span className="eyebrow">YOUR BENCH, IN ONE PLACE</span>
-              <h1>Start with a sequence</h1>
-              <p>
-                Create a new record or open an annotated GenBank or FASTA file.
-              </p>
-              <button
-                className="button button-primary"
-                type="button"
-                onClick={createRecord}
-              >
-                Create sequence
-              </button>
-              <span className="format-note">
-                GenBank is recommended for annotated records.
-              </span>
-            </div>
-          ) : (
-            activeDocument && (
-              <>
-                <div
-                  className="tab-strip"
-                  role="tablist"
-                  aria-label="Open documents"
-                >
-                  {documents.map((item) => (
-                    <button
-                      className={`tab-strip-item${activeId === item.id ? " is-active" : ""}`}
-                      id={`tab-${item.id}`}
-                      key={item.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={activeId === item.id}
-                      aria-controls={`panel-${item.id}`}
-                      onClick={() => activateDocument(item.id)}
-                      disabled={busy}
-                    >
-                      {item.record.name || "Untitled sequence"}
-                      {recordSnapshot(item.record) !== item.savedSnapshot ||
-                      item.draftSequence !== undefined
-                        ? " •"
-                        : ""}
-                    </button>
-                  ))}
+            )}
+            {showRecoveryNotice && (
+              <div className="recovery-notice" role="status">
+                Restored {recovery.documents.length} document
+                {recovery.documents.length === 1 ? "" : "s"} from this device.
+              </div>
+            )}
+            {busy && (
+              <div className="busy-indicator" role="status">
+                Processing sequence…
+              </div>
+            )}
+            {record ? (
+              <SequenceWorkspace
+                record={record}
+                selectedRange={selection}
+                searchQuery={search}
+                onSelectionChange={handleViewerSelection}
+              />
+            ) : (
+              <div className="empty-state">
+                <div className="empty-illustration" aria-hidden="true">
+                  <span className="helix-line helix-line-a" />
+                  <span className="helix-line helix-line-b" />
+                  <span className="helix-rung rung-one" />
+                  <span className="helix-rung rung-two" />
+                  <span className="helix-rung rung-three" />
                 </div>
-                <section
-                  className="document-panel"
-                  id={`panel-${activeDocument.id}`}
-                  role="tabpanel"
-                  aria-labelledby={`tab-${activeDocument.id}`}
-                >
-                  <div className="document-header">
-                    <div>
-                      <span className="eyebrow">
-                        SEQUENCE RECORD · {activeDocument.sourceName}
-                      </span>
-                      <input
-                        className="record-title-input"
-                        aria-label="Record name"
-                        value={record.name ?? ""}
-                        onChange={(event) =>
-                          updateRecord(activeDocument.id, {
-                            ...record,
-                            name: event.target.value,
-                          })
-                        }
-                      />
-                      {record.definition && <p>{record.definition}</p>}
-                    </div>
-                    <span className="topology-chip">
-                      {record.topology.toLowerCase()}
-                    </span>
-                  </div>
-                  <section
-                    className="stats-row"
-                    aria-label="Sequence statistics"
-                  >
-                    <div>
-                      <span>Length</span>
-                      <strong>
-                        {record.seq.length.toLocaleString()} <small>bp</small>
-                      </strong>
-                    </div>
-                    <div>
-                      <span>Features</span>
-                      <strong>{record.features.length.toLocaleString()}</strong>
-                    </div>
-                    <div>
-                      <span>GC content</span>
-                      <strong>
-                        {gcPercent.toFixed(1)}
-                        <small>%</small>
-                      </strong>
-                    </div>
-                    <div>
-                      <span>Molecule</span>
-                      <strong>{record.molecule_type || "DNA"}</strong>
-                    </div>
-                  </section>
-                  <section
-                    className="map-section"
-                    aria-labelledby="map-heading"
-                  >
-                    <div className="section-heading">
-                      <h2 id="map-heading">
-                        {record.topology === "Circular"
-                          ? "Plasmid map"
-                          : "Feature overview"}
-                      </h2>
-                      <span>
-                        {record.topology.toLowerCase()} ·{" "}
-                        {record.seq.length.toLocaleString()} bp
-                      </span>
-                    </div>
-                    <SequenceMap
-                      record={record}
-                      selectedFeature={selectedFeature}
-                      onSelectFeature={selectFeature}
-                    />
-                  </section>
-                  <section
-                    className="feature-section"
-                    aria-labelledby="feature-heading"
-                  >
-                    <div className="section-heading">
-                      <h2 id="feature-heading">Annotations</h2>
-                      <button
-                        className="text-button"
-                        type="button"
-                        onClick={startNewFeature}
-                        disabled={
-                          busy ||
-                          record.seq.length === 0 ||
-                          sequenceDraft !== bases
-                        }
-                      >
-                        + Add feature
-                      </button>
-                    </div>
-                    <div className="feature-list">
-                      {record.features.map((feature, index) => (
-                        <div
-                          className={`feature-row${selectedFeature === index ? " is-selected" : ""}`}
-                          key={documentFeatureKey(feature, index)}
-                        >
-                          <button
-                            className="feature-row-select"
-                            type="button"
-                            onClick={() => startFeatureEdit(index)}
-                          >
-                            <span
-                              className={`feature-marker feature-${feature.kind.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`}
-                            />
-                            <strong>{featureLabel(feature)}</strong>
-                            <span>{feature.kind}</span>
-                            <code>{featureLocationText(feature.location)}</code>
-                          </button>
-                          <button
-                            className="feature-edit"
-                            type="button"
-                            onClick={() => startFeatureEdit(index)}
-                            aria-label={`Edit ${featureLabel(feature)}`}
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      ))}
-                      {record.features.length === 0 && (
-                        <p className="sidebar-empty">
-                          No annotations yet. Select bases and add a feature.
-                        </p>
-                      )}
-                    </div>
-                    {featureDraft && (
-                      <form
-                        className="feature-editor"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void saveFeature();
-                        }}
-                      >
-                        <label>
-                          Type
-                          <input
-                            value={featureDraft.kind}
-                            onChange={(event) =>
-                              setFeatureDraft({
-                                ...featureDraft,
-                                kind: event.target.value,
-                              })
-                            }
-                            required
-                          />
-                        </label>
-                        <label>
-                          Label
-                          <input
-                            value={featureDraft.label}
-                            onChange={(event) =>
-                              setFeatureDraft({
-                                ...featureDraft,
-                                label: event.target.value,
-                              })
-                            }
-                            placeholder="Optional feature label"
-                          />
-                        </label>
-                        <label>
-                          Start (0-based)
-                          <input
-                            type="number"
-                            min="0"
-                            max={record.seq.length}
-                            value={featureDraft.start}
-                            disabled={!editableSimpleFeature}
-                            onChange={(event) =>
-                              setFeatureDraft({
-                                ...featureDraft,
-                                start: event.target.value,
-                              })
-                            }
-                            required
-                          />
-                        </label>
-                        <label>
-                          End (exclusive)
-                          <input
-                            type="number"
-                            min="1"
-                            max={record.seq.length}
-                            value={featureDraft.end}
-                            disabled={!editableSimpleFeature}
-                            onChange={(event) =>
-                              setFeatureDraft({
-                                ...featureDraft,
-                                end: event.target.value,
-                              })
-                            }
-                            required
-                          />
-                        </label>
-                        {editableSimpleFeature && (
-                          <label className="strand-option">
-                            <input
-                              type="checkbox"
-                              checked={featureDraft.reverse}
-                              onChange={(event) =>
-                                setFeatureDraft({
-                                  ...featureDraft,
-                                  reverse: event.target.checked,
-                                })
-                              }
-                            />{" "}
-                            Reverse strand
-                          </label>
-                        )}
-                        {!editableSimpleFeature && (
-                          <p className="format-note">
-                            Complex feature locations are preserved; edit their
-                            type and label here.
-                          </p>
-                        )}
-                        <div className="editor-actions">
-                          <button
-                            className="button button-primary"
-                            type="submit"
-                            disabled={busy || sequenceDraft !== bases}
-                          >
-                            Save feature
-                          </button>
-                          {featureDraft.index !== null && (
-                            <button
-                              className="text-button danger-button"
-                              type="button"
-                              onClick={() => void removeFeature()}
-                              disabled={busy || sequenceDraft !== bases}
-                            >
-                              Delete
-                            </button>
-                          )}
-                          <button
-                            className="text-button"
-                            type="button"
-                            onClick={() => setFeatureDraft(null)}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                  </section>
-                  <section
-                    className="sequence-section"
-                    aria-labelledby="sequence-heading"
-                  >
-                    <div className="section-heading">
-                      <h2 id="sequence-heading">Sequence</h2>
-                      <div className="sequence-actions">
-                        <label className="find-control">
-                          <span className="visually-hidden">Find sequence</span>
-                          <input
-                            ref={findInput}
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter")
-                                findMatch(event.shiftKey ? -1 : 1);
-                            }}
-                            placeholder="Find bases…"
-                            aria-label="Find bases"
-                          />
-                        </label>
-                        <button
-                          className="text-button"
-                          type="button"
-                          onClick={() => findMatch(-1)}
-                          disabled={!search}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          className="text-button"
-                          type="button"
-                          onClick={() => findMatch(1)}
-                          disabled={!search}
-                        >
-                          ↓
-                        </button>
-                        <button
-                          className="text-button"
-                          type="button"
-                          onClick={() => void flipStrand()}
-                          disabled={busy || sequenceDraft !== bases}
-                        >
-                          Reverse complement
-                        </button>
-                      </div>
-                    </div>
-                    <p className="sequence-hint">
-                      Select bases to inspect or annotate. Edit the sequence,
-                      then apply the change.
-                    </p>
-                    <textarea
-                      ref={sequenceInput}
-                      className="sequence-view"
-                      aria-label="Editable nucleotide sequence"
-                      value={sequenceDraft}
-                      onChange={(event) => {
-                        const draft = event.target.value.toUpperCase();
-                        setSequenceDraft(draft);
-                        setDocuments((current) =>
-                          current.map((item) =>
-                            item.id === activeDocument.id
-                              ? {
-                                  ...item,
-                                  draftSequence:
-                                    draft === bases ? undefined : draft,
-                                }
-                              : item,
-                          ),
-                        );
-                      }}
-                      onSelect={(event) =>
-                        setSelection([
-                          event.currentTarget.selectionStart,
-                          event.currentTarget.selectionEnd,
-                        ])
-                      }
-                      spellCheck={false}
-                      autoCapitalize="off"
-                      autoCorrect="off"
-                      wrap="off"
-                    />
-                    <div className="sequence-footer">
-                      <span>
-                        {sequenceDraft.length.toLocaleString()} bases ·
-                        selection {selection[0]}..{selection[1]} (0-based)
-                      </span>
-                      <button
-                        className="button button-primary"
-                        type="button"
-                        onClick={() => void applySequenceEdit()}
-                        disabled={busy || sequenceDraft === bases}
-                      >
-                        Apply sequence edit
-                      </button>
-                    </div>
-                  </section>
-                </section>
-              </>
-            )
-          )}
-        </section>
-      </section>
-    </main>
+                <span className="eyebrow">LOCAL SEQUENCE WORKSPACE</span>
+                <h1>Start with a sequence</h1>
+                <p>
+                  Use the File menu to create a record or open a GenBank or
+                  FASTA file.
+                </p>
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
+
+      {sequenceEditorOpen && activeDocument && (
+        <SequenceEditorDialog
+          value={sequenceDraft}
+          busy={busy}
+          onChange={updateSequenceDraft}
+          onApply={() => void applySequenceDraft()}
+          onCancel={discardSequenceDraft}
+        />
+      )}
+      {featureDraft && record && (
+        <FeatureEditorDialog
+          draft={featureDraft}
+          sequenceLength={record.seq.length}
+          busy={busy}
+          editableRange={editableSimpleFeature}
+          onChange={setFeatureDraft}
+          onSave={() => void saveFeature()}
+          onDelete={() => void removeFeature()}
+          onClose={() => setFeatureDraft(null)}
+        />
+      )}
+    </div>
   );
 }
 
