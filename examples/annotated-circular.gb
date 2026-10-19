@@ -1,0 +1,15 @@
+LOCUS       TestPlasmid                 36 bp ds-DNA circular SYN 01-JAN-2000
+DEFINITION  Small annotated circular DNA fixture.
+ACCESSION   TEST0001
+FEATURES             Location/Qualifiers
+     source          1..36
+                     /organism="synthetic construct"
+     promoter        1..10
+                     /label="Ptest"
+     CDS             complement(15..30)
+                     /gene="reporter"
+     misc_feature    join(31..36,1..6)
+                     /label="origin-spanning feature"
+ORIGIN
+        1 atgcatgcat gcatgcatgc atgcatgcat gcatgc
+//

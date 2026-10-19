@@ -1,0 +1,6 @@
+to_be_ignored.txt
+/node_modules
+/dist
+/src-tauri/target
+/src-tauri/gen/schemas
+/.DS_Store
