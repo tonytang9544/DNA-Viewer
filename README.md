@@ -23,6 +23,12 @@ Build a desktop bundle with:
 npm run tauri build
 ```
 
+Build just the executable without the bundle with:
+
+```sh
+npm run tauri build -- --no-bundle
+```
+
 ## Current functionality
 
 - GenBank (`.gb`, `.gbk`, `.genbank`) is the primary annotated format.
