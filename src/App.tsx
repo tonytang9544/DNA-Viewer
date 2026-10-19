@@ -6,11 +6,11 @@ import {
   useRef,
   useState,
 } from "react";
+import ActionMenuBar from "./components/ActionMenuBar";
 import DocumentTabs, { type OpenDocumentTab } from "./components/DocumentTabs";
 import FeatureEditorDialog, {
   type FeatureDraft,
 } from "./components/FeatureEditorDialog";
-import FileMenu from "./components/FileMenu";
 import SequenceEditorDialog from "./components/SequenceEditorDialog";
 import SequenceWorkspace from "./components/SequenceWorkspace";
 import {
@@ -36,6 +36,7 @@ import {
 } from "./lib/tauri";
 
 type FileFormat = "genbank" | "fasta";
+type ViewerMode = "linear" | "circular" | "both";
 
 interface EditorDocument {
   id: string;
@@ -135,10 +136,7 @@ function isLocation(value: unknown): value is Location {
           Array.isArray(boundary) &&
           boundary.length === 2 &&
           Number.isInteger(boundary[0]) &&
-          typeof boundary[1] === "object" &&
-          boundary[1] !== null &&
-          Object.values(boundary[1]).length === 1 &&
-          typeof Object.values(boundary[1])[0] === "boolean",
+          typeof boundary[1] === "boolean",
       )
     );
   }
@@ -243,8 +241,8 @@ function locationFromRange(
 ): Location {
   const range: Location = {
     Range: [
-      [start, { Before: false }],
-      [end, { After: false }],
+      [start, false],
+      [end, false],
     ],
   };
   return reverse ? { Complement: range } : range;
@@ -265,6 +263,7 @@ function App() {
   );
   const [sequenceDraft, setSequenceDraft] = useState("");
   const [selection, setSelection] = useState<[number, number]>([0, 0]);
+  const [viewerMode, setViewerMode] = useState<ViewerMode>("linear");
   const [search, setSearch] = useState("");
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);
   const [featureDraft, setFeatureDraft] = useState<FeatureDraft | null>(null);
@@ -832,7 +831,7 @@ function App() {
           onChange={openFile}
           aria-label="Choose a GenBank or FASTA file"
         />
-        <FileMenu
+        <ActionMenuBar
           disabled={busy}
           canUndo={!!activeDocument?.undo.length && sequenceDraft === bases}
           canRedo={!!activeDocument?.redo.length && sequenceDraft === bases}
@@ -846,6 +845,7 @@ function App() {
           saveFormat={activeDocument?.format ?? "genbank"}
           searchQuery={search}
           focusSearchRequest={focusSearchRequest}
+          viewerMode={viewerMode}
           onNewRecord={() => void createRecord()}
           onOpenFile={() => fileInput.current?.click()}
           onSave={(format) => void saveDocument(format)}
@@ -860,6 +860,7 @@ function App() {
           onDeleteFeature={() => void deleteSelectedFeature()}
           onSearchChange={setSearch}
           onFind={findMatch}
+          onViewerModeChange={setViewerMode}
         />
         <div className="sidebar-footer" title="Documents are recovered locally">
           <span className="status-dot" />
@@ -913,6 +914,7 @@ function App() {
                 record={record}
                 selectedRange={selection}
                 searchQuery={search}
+                viewerMode={viewerMode}
                 onSelectionChange={handleViewerSelection}
               />
             ) : (

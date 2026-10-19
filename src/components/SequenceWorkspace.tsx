@@ -11,6 +11,7 @@ interface SequenceWorkspaceProps {
   record: SequenceRecord;
   selectedRange: [number, number] | null;
   searchQuery: string;
+  viewerMode: NonNullable<SeqVizProps["viewer"]>;
   onSelectionChange: (
     range: [number, number],
     featureIndex: number | null,
@@ -39,6 +40,7 @@ export default function SequenceWorkspace({
   record,
   selectedRange,
   searchQuery,
+  viewerMode,
   onSelectionChange,
 }: SequenceWorkspaceProps) {
   const sequence = useMemo(
@@ -97,7 +99,7 @@ export default function SequenceWorkspace({
           showComplement
           showIndex
           style={{ height: "100%", width: "100%" }}
-          viewer="linear"
+          viewer={viewerMode}
         />
       ) : (
         <div className="empty-sequence">This record has no sequence bases.</div>

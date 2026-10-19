@@ -1,7 +1,7 @@
 export type Topology = "Linear" | "Circular";
 
 export type Location =
-  | { Range: [[number, { Before: boolean }], [number, { After: boolean }]] }
+  | { Range: [[number, boolean], [number, boolean]] }
   | { Between: [number, number] }
   | { Complement: Location }
   | { Join: Location[] }
@@ -104,8 +104,7 @@ export function simpleFeatureRange(location: Location): FeatureSegment | null {
 
 export function featureLocationText(location: Location): string {
   if ("Range" in location) {
-    const [[start, { Before: before }], [end, { After: after }]] =
-      location.Range;
+    const [[start, before], [end, after]] = location.Range;
     const first = `${before ? "<" : ""}${start + 1}`;
     const last = `${after ? ">" : ""}${end}`;
     return end - start === 1 && !before && !after ? first : `${first}..${last}`;

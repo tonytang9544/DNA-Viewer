@@ -245,4 +245,18 @@ mod tests {
             0
         );
     }
+
+    #[test]
+    fn feature_payload_from_frontend_deserializes_and_adds() {
+        let feature: Feature = serde_json::from_value(serde_json::json!({
+            "kind": "misc_feature",
+            "location": { "Range": [[0, false], [3, false]] },
+            "qualifiers": [["label", "new feature"]]
+        }))
+        .expect("frontend feature payload should match the Rust serde shape");
+        let record = operations::new_record("example".to_owned()).expect("record creates");
+        let updated = operations::add_feature(record, feature).expect("feature adds");
+        assert_eq!(updated.features.len(), 1);
+        assert_eq!(updated.features[0].location.to_gb_format(), "1..3");
+    }
 }

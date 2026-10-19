@@ -88,13 +88,13 @@ Coordinate conventions must be explicit and consistent across Rust, TypeScript, 
 
 ### Phase 1 UI expansion — Double-stranded sequence workspace
 
-**Status: implemented; acceptance criteria partially verified.** The shell now uses the left File menu, top document tabs, and a central SeqViz-based linear workspace. Browser smoke testing with a recovered fixture confirms aligned forward/complement strands, a coordinate ruler, and forward, reverse, and origin-spanning feature annotations render. Automated frontend checks/build passed. Desktop acceptance, accessibility, dense/long-record behavior, and end-to-end editing remain to be verified.
+**Status: implemented; acceptance criteria partially verified.** The shell now uses separate File/Edit/View menus, top document tabs, and one central SeqViz workspace with linear, circular, and combined display choices. Browser smoke testing with a recovered fixture confirms aligned forward/complement strands, a coordinate ruler, and feature annotations render. Automated frontend checks/build passed. Desktop acceptance, accessibility, dense/long-record behavior, and end-to-end editing remain to be verified.
 
 #### Target application layout
 
-- **Left panel:** retain the left-side panel but simplify it into a compact, menu-like action area. Its first control is a **File** button that opens a menu containing document/file actions already available in the app, including New/Create sequence, Open file, Save/Export, and format selection where appropriate. Keep destructive or error-prone actions clearly labeled and provide standard confirmation where needed. Recovery remains automatic and should not clutter this menu.
+- **Left panel:** retain the left-side panel but simplify it into a compact, menu-like action area with separate **File**, **Edit**, and **View** buttons. File contains document actions such as New/Create, Open, Save, and Export; Edit contains sequence and feature editing, undo/redo, and search; View controls the sequence presentation. Keep destructive or error-prone actions clearly labeled and provide standard confirmation where needed. Recovery remains automatic and should not clutter these menus.
 - **Top panel:** remove the current action buttons. Use the top area only for navigation among currently open documents, showing each document name and an unsaved-change indicator. Selecting a tab changes the active document; closing a tab remains available with the existing unsaved-change confirmation behavior.
-- **Main body:** make the SeqViz-based sequence visualization the primary and only central content surface. Avoid duplicating the current standalone sequence textarea, statistics strip, annotation list, or separate map as parallel main-body panels. Provide sequence editing, feature interaction, and relevant sequence views through SeqViz and its project-owned wrapper where feasible; expose actions that do not naturally belong in the visualization through the File menu or documented keyboard shortcuts. The wrapper may compose SeqViz's own linear/circular views if that remains one coherent viewer workspace.
+- **Main body:** make the SeqViz-based sequence visualization the primary and only central content surface. Avoid duplicating the current standalone sequence textarea, statistics strip, annotation list, or separate map as parallel main-body panels. Provide sequence editing, feature interaction, and relevant sequence views through SeqViz and its project-owned wrapper where feasible; expose actions that do not naturally belong in the visualization through the File/Edit/View menus or documented keyboard shortcuts. The wrapper may compose SeqViz's own linear/circular views if that remains one coherent viewer workspace.
 
 #### Library feasibility findings
 
@@ -109,10 +109,10 @@ SeqViz 3.10.25 (MIT) was adopted as the first integration path. Its linear viewe
 
 #### Implementation sequence and outcome
 
-1. [x] Implement the File menu, document-only top navigation, and central viewer surface. Preserve the Rust record model and zero-based, half-open feature coordinates.
+1. [x] Implement separate File/Edit/View menus, document-only top navigation, and central viewer surface. Preserve the Rust record model and zero-based, half-open feature coordinates.
 2. [x] Adopt SeqViz and isolate its integration behind `SequenceWorkspace`; map feature segments and compute a same-length complementary strand in the project-owned adapter.
 3. [x] Render aligned strands, a coordinate ruler, directional feature annotations, search highlighting, and controlled selection in the linear viewer. Browser smoke testing confirmed a short fixture with a reverse feature and an origin-spanning feature renders.
-4. [x] Keep sequence and feature editing behind the existing Rust-backed operations, exposed through dialogs and the File menu. Annotation clicks were verified to enable selected-feature actions in the browser.
+4. [x] Keep sequence and feature editing behind the existing Rust-backed operations, exposed through dialogs and the Edit menu. Annotation clicks were verified to enable selected-feature actions in the browser.
 5. [ ] Verify the complete edit/apply/save/reopen flow in the Tauri desktop runtime; plain-browser command invocation is unavailable by design.
 6. [ ] Verify keyboard accessibility, copy/range-selection behavior, dense annotations, resizing, and representative long-record performance. Add explicit strand direction indicators or document their absence if needed.
 7. [ ] Decide whether circular view access should be restored within the single viewer surface; the current integration is linear-only.

@@ -30,7 +30,7 @@ npm run tauri build
 - Import one record per file, edit and export it, and keep multiple documents open in tabs.
 - Edit sequence bases and feature annotations; use search, reverse complement, undo/redo, and local recovery for unsaved changes.
 - View aligned forward and complementary strands with feature annotations in the SeqViz-based linear workspace. The circular overview and standalone statistics panel are not currently exposed in this UI.
-- Use the left File menu for document and editing actions; open documents are navigated from the top tab bar.
+- Use the left File, Edit, and View menus for document actions, editing tools, and linear/circular display modes; open documents are navigated from the top tab bar.
 - Export uses the selected GenBank or FASTA format and downloads the resulting file. Local recovery is not a replacement for an exported backup.
 - Linear insertions and deletions update feature coordinates. Circular records currently support equal-length substitutions only; circular insertions and deletions are rejected explicitly.
 - Parsing, writing, editing, and recovery run locally; the app does not upload sequence data.

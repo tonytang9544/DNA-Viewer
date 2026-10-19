@@ -807,21 +807,21 @@ button {
 .app-shell {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 80px minmax(0, 1fr);
   overflow: hidden;
 }
 .sidebar {
   z-index: 20;
   align-items: center;
   min-width: 0;
-  padding: 15px 8px;
+  padding: 15px 6px;
   border-right: 1px solid var(--line);
 }
 .sidebar-brand {
   display: grid;
   width: 40px;
   height: 40px;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
   place-items: center;
   border-radius: 10px;
   background: #f0f6f2;
@@ -978,14 +978,21 @@ button {
   min-height: 100%;
   padding: 24px;
 }
-.file-menu {
+.menu-bar {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.menu-section {
   position: relative;
   width: 100%;
 }
-.file-menu-trigger {
+.menu-bar-trigger {
   display: flex;
-  width: 48px;
-  height: 54px;
+  width: 64px;
+  height: 52px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -999,17 +1006,17 @@ button {
   font-weight: 600;
   cursor: pointer;
 }
-.file-menu-trigger:hover,
-.file-menu-trigger.is-open {
+.menu-bar-trigger:hover,
+.menu-bar-trigger.is-open {
   border-color: #dce9e0;
   color: #246a4e;
   background: #f0f6f2;
 }
-.file-menu-icon {
+.menu-bar-icon {
   font-size: 19px;
   line-height: 1;
 }
-.file-menu-popover {
+.menu-popover {
   position: absolute;
   top: 0;
   left: calc(100% + 13px);
@@ -1023,7 +1030,7 @@ button {
   background: #fff;
   box-shadow: 0 12px 34px rgb(22 42 31 / 16%);
 }
-.file-menu-popover > button {
+.menu-popover > button {
   display: flex;
   width: 100%;
   min-height: 34px;
@@ -1039,14 +1046,14 @@ button {
   font-size: 11px;
   cursor: pointer;
 }
-.file-menu-popover > button:hover:not(:disabled) {
+.menu-popover > button:hover:not(:disabled) {
   background: #f0f6f2;
 }
-.file-menu-popover > button:disabled {
+.menu-popover > button:disabled {
   color: #a2aca6;
   cursor: not-allowed;
 }
-.file-menu-popover > button span {
+.menu-popover > button span {
   flex: none;
   color: #96a29a;
   font-size: 9px;
@@ -1104,7 +1111,7 @@ button {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.file-menu .menu-search small {
+.menu-bar .menu-search small {
   color: #96a19b;
   font-size: 9px;
 }
@@ -1245,7 +1252,7 @@ button {
     min-width: 0;
   }
   .app-shell {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: 72px minmax(0, 1fr);
   }
   .document-tabs {
     padding: 0 4px;
@@ -1253,8 +1260,8 @@ button {
   .open-document-tab {
     min-width: 100px;
   }
-  .file-menu-popover {
+  .menu-popover {
     left: calc(100% + 8px);
-    width: min(270px, calc(100vw - 76px));
+    width: min(270px, calc(100vw - 92px));
   }
 }
