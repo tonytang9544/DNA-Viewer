@@ -1,0 +1,30 @@
+diff --git a/node_modules/seqviz/dist/index.browser.js b/node_modules/seqviz/dist/index.browser.js
+index 8a6d125..eee602c 100644
+--- a/node_modules/seqviz/dist/index.browser.js
++++ b/node_modules/seqviz/dist/index.browser.js
+@@ -3942,8 +3942,8 @@ var SelectionHandler = /** @class */ (function (_super) {
+             }
+             else if (e.type === "mousemove" &&
+                 _this.dragEvent &&
+-                currBase &&
+-                _this.previousBase &&
++                currBase !== null &&
++                _this.previousBase !== null &&
+                 currBase !== _this.previousBase) {
+                 var increased = currBase > _this.previousBase; // bases increased
+                 var changeThreshold = seqLength * 0.9; // threshold for unrealistic change by mouse movement
+diff --git a/node_modules/seqviz/dist/index.js b/node_modules/seqviz/dist/index.js
+index 206c9ae..db44328 100644
+--- a/node_modules/seqviz/dist/index.js
++++ b/node_modules/seqviz/dist/index.js
+@@ -3942,8 +3942,8 @@ var SelectionHandler = /** @class */ (function (_super) {
+             }
+             else if (e.type === "mousemove" &&
+                 _this.dragEvent &&
+-                currBase &&
+-                _this.previousBase &&
++                currBase !== null &&
++                _this.previousBase !== null &&
+                 currBase !== _this.previousBase) {
+                 var increased = currBase > _this.previousBase; // bases increased
+                 var changeThreshold = seqLength * 0.9; // threshold for unrealistic change by mouse movement

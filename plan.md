@@ -111,24 +111,24 @@ SeqViz 3.10.25 (MIT) was adopted as the first integration path. Its linear viewe
 
 1. [x] Implement separate File/Edit/View menus, document-only top navigation, and central viewer surface. Preserve the Rust record model and zero-based, half-open feature coordinates.
 2. [x] Adopt SeqViz and isolate its integration behind `SequenceWorkspace`; map feature segments and compute a same-length complementary strand in the project-owned adapter.
-3. [x] Render aligned strands, a coordinate ruler, directional feature annotations, search highlighting, and controlled selection in the linear viewer. Browser smoke testing confirmed a short fixture with a reverse feature and an origin-spanning feature renders.
+3. [x] Render aligned strands, a coordinate ruler, directional feature annotations, search highlighting, and interactive selection in the linear viewer. Browser smoke testing confirmed a short fixture with a reverse feature and an origin-spanning feature renders.
 4. [x] Keep sequence and feature editing behind the existing Rust-backed operations, exposed through dialogs and the Edit menu. Annotation clicks were verified to enable selected-feature actions in the browser.
 5. [ ] Verify the complete edit/apply/save/reopen flow in the Tauri desktop runtime; plain-browser command invocation is unavailable by design.
 6. [ ] Verify keyboard accessibility, copy/range-selection behavior, dense annotations, resizing, and representative long-record performance. Add explicit strand direction indicators or document their absence if needed.
-7. [ ] Decide whether circular view access should be restored within the single viewer surface; the current integration is linear-only.
+7. [x] Restore circular view access within the single viewer surface using SeqViz's linear, circular, and combined modes.
 8. [ ] Smoke-test a packaged, offline Tauri WebView and close any remaining viewer/library compatibility gaps.
 
 #### Focused verification and acceptance criteria
 
 - A short fixture visibly pairs every top-strand base with the correct complementary base in the same column. **Verified in the browser.** Explicit 5′/3′ indicators are not currently present.
 - For a displayed base `b`, the paired character is `A↔T`, `C↔G` (and `U` rules for RNA); supported ambiguity symbols follow a documented complement table, while unsupported characters are reported rather than silently mispaired.
-- Annotation selection was verified to enable the corresponding feature actions. Selection-coordinate consistency across both strands, search, and circular/linear map, and edited-record synchronization still need acceptance testing.
+- Browser interaction testing confirmed linear selections can be dragged right-to-left and extended across multiple viewer pages without snapping back; circular selections can cross the sequence origin. Annotation selection enables corresponding feature actions. Keyboard selection, cross-view coordinate consistency, and edited-record synchronization still need desktop acceptance testing.
 - Positive- and negative-strand annotations and an origin-spanning feature render in the short browser fixture. Overlapping/joined feature behavior, narrow widths, and dense annotation labels still need acceptance testing.
 - Keyboard users can navigate, extend/collapse a selection, copy it, and activate an annotation without relying on pointer-only interaction. Provide a semantic accessible representation or equivalent labeled controls if a selected library's residue surface is not accessible.
 - Resizing/reflow and long-record scrolling preserve document-wide selection coordinates and do not create unacceptable UI stalls. Establish the measurable workload and responsiveness target in the library spike before implementation.
 - The File menu contains the document actions without restoring a row of action buttons to the top panel; the top panel navigates only among open documents; the central workspace presents one coherent sequence-viewer surface without duplicated standalone sequence, feature, statistics, or map panels.
 - Frontend check/build passed and browser smoke testing confirmed the viewer surface; no focused frontend test runner exists yet. Packaged offline WebView and full desktop acceptance remain outstanding.
-- SeqViz spike outcome: adopted with the explicit complement adapter and annotation mapping described above. Known gaps are explicit strand-direction labels, linear-only view access, and unverified packaged/long-record behavior.
+- SeqViz spike outcome: adopted with the explicit complement adapter and annotation mapping described above. The `patches/seqviz+3.10.25.patch` fix allows circular drag-selection to include base index zero; the linear view no longer receives every interactive selection as a programmatic prop, preventing scroll resets. Known gaps are explicit strand-direction labels and unverified packaged/long-record behavior.
 
 ### Phase 2 — Everyday analysis
 

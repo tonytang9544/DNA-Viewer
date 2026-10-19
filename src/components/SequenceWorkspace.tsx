@@ -9,8 +9,9 @@ import {
 
 interface SequenceWorkspaceProps {
   record: SequenceRecord;
-  selectedRange: [number, number] | null;
   searchQuery: string;
+  jumpToRange: [number, number] | null;
+  onClearJump: () => void;
   viewerMode: NonNullable<SeqVizProps["viewer"]>;
   onSelectionChange: (
     range: [number, number],
@@ -38,8 +39,9 @@ function selectedFeatureIndex(
 
 export default function SequenceWorkspace({
   record,
-  selectedRange,
   searchQuery,
+  jumpToRange,
+  onClearJump,
   viewerMode,
   onSelectionChange,
 }: SequenceWorkspaceProps) {
@@ -76,7 +78,15 @@ export default function SequenceWorkspace({
   }
 
   return (
-    <div className="sequence-workspace">
+    <div
+      className="sequence-workspace"
+      onPointerDownCapture={() => {
+        if (jumpToRange) onClearJump();
+      }}
+      onKeyDownCapture={() => {
+        if (jumpToRange) onClearJump();
+      }}
+    >
       {sequence ? (
         <SeqViz
           annotations={annotations}
@@ -87,11 +97,8 @@ export default function SequenceWorkspace({
           primers={[]}
           search={searchQuery ? { query: searchQuery } : undefined}
           selection={
-            selectedRange && selectedRange[1] > selectedRange[0]
-              ? {
-                  start: selectedRange[0],
-                  end: selectedRange[1] - 1,
-                }
+            jumpToRange && jumpToRange[1] > jumpToRange[0]
+              ? { start: jumpToRange[0], end: jumpToRange[1] - 1 }
               : undefined
           }
           seq={sequence}

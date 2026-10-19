@@ -29,7 +29,8 @@ npm run tauri build
 - FASTA (`.fa`, `.fasta`, `.fna`) is supported for basic sequence exchange.
 - Import one record per file, edit and export it, and keep multiple documents open in tabs.
 - Edit sequence bases and feature annotations; use search, reverse complement, undo/redo, and local recovery for unsaved changes.
-- View aligned forward and complementary strands with feature annotations in the SeqViz-based linear workspace. The circular overview and standalone statistics panel are not currently exposed in this UI.
+- View aligned forward and complementary strands with feature annotations in the SeqViz workspace, switching between linear, circular, or combined views. The standalone statistics panel is not currently exposed in this UI.
+- Select sequences in either direction, extend linear selections across viewer pages, and drag circular-map selections across the origin.
 - Use the left File, Edit, and View menus for document actions, editing tools, and linear/circular display modes; open documents are navigated from the top tab bar.
 - Export uses the selected GenBank or FASTA format and downloads the resulting file. Local recovery is not a replacement for an exported backup.
 - Linear insertions and deletions update feature coordinates. Circular records currently support equal-length substitutions only; circular insertions and deletions are rejected explicitly.

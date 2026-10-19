@@ -263,6 +263,9 @@ function App() {
   );
   const [sequenceDraft, setSequenceDraft] = useState("");
   const [selection, setSelection] = useState<[number, number]>([0, 0]);
+  const [jumpToSelection, setJumpToSelection] = useState<
+    [number, number] | null
+  >(null);
   const [viewerMode, setViewerMode] = useState<ViewerMode>("linear");
   const [search, setSearch] = useState("");
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);
@@ -469,6 +472,7 @@ function App() {
         const index = current.findIndex((item) => item.id === id);
         setActiveId(remaining[Math.max(0, index - 1)]?.id ?? null);
         setSelection([0, 0]);
+        setJumpToSelection(null);
         setFeatureDraft(null);
         setSelectedFeature(null);
       }
@@ -518,6 +522,7 @@ function App() {
       void applySequenceEdit().then((edited) => {
         if (edited) {
           setSelection([0, 0]);
+          setJumpToSelection(null);
           setFeatureDraft(null);
           setSelectedFeature(null);
           setActiveId(id);
@@ -526,6 +531,7 @@ function App() {
       return;
     }
     setSelection([0, 0]);
+    setJumpToSelection(null);
     setFeatureDraft(null);
     setSelectedFeature(null);
     setActiveId(id);
@@ -614,6 +620,7 @@ function App() {
     featureIndex: number | null,
   ) {
     setSelection(range);
+    setJumpToSelection(null);
     setSelectedFeature(featureIndex);
   }
 
@@ -794,6 +801,7 @@ function App() {
     setError(null);
     const next: [number, number] = [match, match + query.length];
     setSelection(next);
+    setJumpToSelection(next);
     setSelectedFeature(null);
     setError(null);
   }
@@ -912,8 +920,9 @@ function App() {
             {record ? (
               <SequenceWorkspace
                 record={record}
-                selectedRange={selection}
                 searchQuery={search}
+                jumpToRange={jumpToSelection}
+                onClearJump={() => setJumpToSelection(null)}
                 viewerMode={viewerMode}
                 onSelectionChange={handleViewerSelection}
               />
