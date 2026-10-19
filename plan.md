@@ -79,12 +79,12 @@ Coordinate conventions must be explicit and consistent across Rust, TypeScript, 
 
 ### Phase 1 — Sequence documents and navigation
 
-1. Implement record creation, file open/save, document tabs, and recovery for unsaved edits.
-2. Build the linear sequence view with selection, keyboard navigation, search, and basic editing.
-3. Display and edit feature annotations; support reverse-complement navigation while maintaining coherent feature coordinates and strand.
-4. Add overview statistics and the initial circular plasmid map.
+1. [x] Implement record creation, single-record GenBank/FASTA open and export, document tabs, and local recovery for unsaved record and sequence edits.
+2. [x] Build the linear sequence view with selection, keyboard shortcuts, search, and basic editing. Linear insertions and deletions remap affected annotations.
+3. [x] Display and edit feature annotations; support reverse-complement navigation while maintaining feature coordinates and strand. Circular indels are explicitly rejected until origin-wrapping remapping is implemented.
+4. [x] Add overview statistics and initial linear and circular feature maps, including origin-spanning annotations.
 
-**Exit criteria:** a user can open, inspect, edit, save, close, and reopen a sequence document; edits and annotations remain consistent between linear and circular views.
+**Exit criteria — partial:** frontend type/lint checks and production build pass; Rust formatting, 10 focused tests, and Clippy pass. The implementation supports opening, editing, exporting, closing, and restoring records. Interactive desktop acceptance testing (including edit/save/reopen and synchronization between views) remains outstanding, so the exit criteria are not yet fully verified.
 
 ### Phase 2 — Everyday analysis
 

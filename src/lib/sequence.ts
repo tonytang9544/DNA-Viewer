@@ -45,8 +45,61 @@ export interface SequenceRecord {
   features: Feature[];
 }
 
+export interface FeatureSegment {
+  start: number;
+  end: number;
+  reverse: boolean;
+}
+
 export function sequenceText(record: SequenceRecord): string {
   return new TextDecoder().decode(new Uint8Array(record.seq));
+}
+
+export function featureSegments(
+  location: Location,
+  reverse = false,
+): FeatureSegment[] {
+  if ("Range" in location) {
+    return [
+      {
+        start: location.Range[0][0],
+        end: location.Range[1][0],
+        reverse,
+      },
+    ];
+  }
+  if ("Complement" in location) {
+    return featureSegments(location.Complement, !reverse);
+  }
+  if ("Join" in location) {
+    return location.Join.flatMap((part) => featureSegments(part, reverse));
+  }
+  if ("Order" in location) {
+    return location.Order.flatMap((part) => featureSegments(part, reverse));
+  }
+  if ("Bond" in location) {
+    return location.Bond.flatMap((part) => featureSegments(part, reverse));
+  }
+  if ("OneOf" in location) {
+    return location.OneOf.flatMap((part) => featureSegments(part, reverse));
+  }
+  if ("Between" in location) {
+    return [
+      { start: location.Between[0], end: location.Between[1] + 1, reverse },
+    ];
+  }
+  if ("External" in location && location.External[1]) {
+    return featureSegments(location.External[1], reverse);
+  }
+  return [];
+}
+
+export function simpleFeatureRange(location: Location): FeatureSegment | null {
+  const reverse = "Complement" in location;
+  const unwrapped = reverse ? location.Complement : location;
+  if (!("Range" in unwrapped)) return null;
+  const [[start], [end]] = unwrapped.Range;
+  return { start, end, reverse };
 }
 
 export function featureLocationText(location: Location): string {

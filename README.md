@@ -23,14 +23,21 @@ Build a desktop bundle with:
 npm run tauri build
 ```
 
-## Phase 0 file support
+## Current functionality
 
 - GenBank (`.gb`, `.gbk`, `.genbank`) is the primary annotated format.
 - FASTA (`.fa`, `.fasta`, `.fna`) is supported for basic sequence exchange.
-- The initial proof of concept handles one record per file. Additional records and third-party formats such as SnapGene `.dna` are deferred compatibility work.
-- Parsing, writing, and sequence display run locally; the app does not upload sequence data.
+- Import one record per file, edit and export it, and keep multiple documents open in tabs.
+- Edit sequence bases and feature annotations; use search, reverse complement, undo/redo, and local recovery for unsaved changes.
+- View sequence statistics and feature locations in linear and circular overviews.
+- Export uses the selected GenBank or FASTA format and downloads the resulting file. Local recovery is not a replacement for an exported backup.
+- Linear insertions and deletions update feature coordinates. Circular records currently support equal-length substitutions only; circular insertions and deletions are rejected explicitly.
+- Parsing, writing, editing, and recovery run locally; the app does not upload sequence data.
+- Additional records per file and third-party formats such as SnapGene `.dna` remain deferred compatibility work.
 
 The GenBank test fixture in `examples/annotated-circular.gb` exercises annotations on a circular sequence, including a feature spanning the origin.
+
+The Phase 1 UI and backend are implemented. Automated frontend checks/build and Rust tests/lint pass; interactive desktop acceptance testing is still needed before treating the phase exit criteria as complete.
 
 ## Quality checks
 

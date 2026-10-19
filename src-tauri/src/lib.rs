@@ -1,4 +1,5 @@
 mod formats;
+mod operations;
 
 use gb_io::seq::Seq;
 use serde::Serialize;
@@ -13,6 +14,8 @@ enum AppError {
     Io(#[from] std::io::Error),
     #[error("Generated output was not valid UTF-8: {0}")]
     Utf8(#[from] std::string::FromUtf8Error),
+    #[error("{0}")]
+    Operation(String),
 }
 
 impl Serialize for AppError {
@@ -44,13 +47,58 @@ fn write_fasta(record: Seq) -> Result<String, AppError> {
     formats::fasta::write(&record)
 }
 
+#[tauri::command]
+fn new_record(name: String) -> Result<Seq, AppError> {
+    operations::new_record(name).map_err(AppError::Operation)
+}
+
+#[tauri::command]
+fn replace_sequence(
+    record: Seq,
+    start: usize,
+    end: usize,
+    replacement: String,
+) -> Result<Seq, AppError> {
+    operations::replace_sequence(record, start, end, &replacement).map_err(AppError::Operation)
+}
+
+#[tauri::command]
+fn reverse_complement(record: Seq) -> Result<Seq, AppError> {
+    operations::reverse_complement(record).map_err(AppError::Operation)
+}
+
+#[tauri::command]
+fn add_feature(record: Seq, feature: gb_io::seq::Feature) -> Result<Seq, AppError> {
+    operations::add_feature(record, feature).map_err(AppError::Operation)
+}
+
+#[tauri::command]
+fn update_feature(
+    record: Seq,
+    index: usize,
+    feature: gb_io::seq::Feature,
+) -> Result<Seq, AppError> {
+    operations::update_feature(record, index, feature).map_err(AppError::Operation)
+}
+
+#[tauri::command]
+fn delete_feature(record: Seq, index: usize) -> Result<Seq, AppError> {
+    operations::delete_feature(record, index).map_err(AppError::Operation)
+}
+
 pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             parse_genbank,
             write_genbank,
             parse_fasta,
-            write_fasta
+            write_fasta,
+            new_record,
+            replace_sequence,
+            reverse_complement,
+            add_feature,
+            update_feature,
+            delete_feature
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Molecular Cloning Studio");
@@ -59,7 +107,11 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::formats::{fasta, genbank};
-    use gb_io::reader::SeqReader;
+    use super::operations;
+    use gb_io::{
+        reader::SeqReader,
+        seq::{After, Before, Feature, Location},
+    };
     use std::io::Cursor;
 
     const CIRCULAR_FIXTURE: &str = include_str!("../../examples/annotated-circular.gb");
@@ -122,5 +174,75 @@ mod tests {
         let error = fasta::parse_single(">sample\nACGT123\n")
             .expect_err("numeric characters are not sequence symbols");
         assert!(error.to_string().contains("invalid character"));
+    }
+
+    #[test]
+    fn sequence_substitution_preserves_feature_coordinates() {
+        let mut record = genbank::parse_single(CIRCULAR_FIXTURE).expect("fixture should parse");
+        let original_features = record.features.clone();
+        record = operations::replace_sequence(record, 0, 1, "G").expect("substitution works");
+        assert_eq!(record.seq[0], b'G');
+        assert_eq!(record.features, original_features);
+    }
+
+    #[test]
+    fn linear_insertion_shifts_features_after_the_edit() {
+        let mut record = operations::new_record("example".to_owned()).expect("record creates");
+        record.topology = gb_io::seq::Topology::Linear;
+        record.features.push(Feature {
+            kind: "gene".into(),
+            location: Location::simple_range(2, 4),
+            qualifiers: vec![],
+        });
+
+        let edited = operations::replace_sequence(record, 1, 1, "AAA").expect("insert works");
+        assert_eq!(edited.seq.len(), 7);
+        assert_eq!(edited.features[0].location.to_gb_format(), "6..7");
+    }
+
+    #[test]
+    fn circular_indels_are_rejected_without_changing_the_record() {
+        let record = genbank::parse_single(CIRCULAR_FIXTURE).expect("fixture should parse");
+        let error = operations::replace_sequence(record, 0, 1, "AA")
+            .expect_err("circular indel coordinates require a separate workflow");
+        assert!(error.contains("equal-length"));
+    }
+
+    #[test]
+    fn reverse_complement_transforms_sequence_and_annotated_locations() {
+        let record = genbank::parse_single(CIRCULAR_FIXTURE).expect("fixture should parse");
+        let reversed = operations::reverse_complement(record.clone()).expect("reverse complement");
+        assert_eq!(reversed.seq, b"gcatgcatgcatgcatgcatgcatgcatgcatgcat");
+        assert!(reversed.features.iter().any(|feature| {
+            feature.kind == "CDS" && feature.location.to_gb_format() == "7..22"
+        }));
+        let restored = operations::reverse_complement(reversed).expect("reverse again");
+        assert_eq!(restored, record);
+    }
+
+    #[test]
+    fn feature_edits_validate_bounds_and_update_the_record() {
+        let mut record = operations::new_record("example".to_owned()).expect("record creates");
+        let feature = Feature {
+            kind: "gene".into(),
+            location: Location::Range((0, Before(false)), (2, After(false))),
+            qualifiers: vec![],
+        };
+        record = operations::add_feature(record, feature.clone()).expect("feature adds");
+        assert_eq!(record.features.len(), 1);
+
+        let bad_feature = Feature {
+            location: Location::simple_range(0, 10),
+            ..feature.clone()
+        };
+        assert!(operations::update_feature(record.clone(), 0, bad_feature).is_err());
+        let updated = operations::update_feature(record, 0, feature).expect("feature updates");
+        assert_eq!(
+            operations::delete_feature(updated, 0)
+                .expect("feature deletes")
+                .features
+                .len(),
+            0
+        );
     }
 }
