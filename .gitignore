@@ -4,3 +4,4 @@ to_be_ignored.txt
 /src-tauri/target
 /src-tauri/gen/schemas
 /.DS_Store
+/examples
