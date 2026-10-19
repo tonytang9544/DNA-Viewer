@@ -70,12 +70,12 @@ Coordinate conventions must be explicit and consistent across Rust, TypeScript, 
 
 ### Phase 0 — Foundation and technical proof
 
-1. Confirm target platforms, initial release format priorities, and whether the app is fully offline.
-2. Scaffold Tauri, Rust, and the TypeScript UI; add formatting, linting, tests, and CI for supported operating systems.
-3. Establish typed command contracts, error representation, logging, and the sequence/feature coordinate conventions.
-4. Establish GenBank import/export behavior with representative annotated circular records; support basic FASTA exchange. Defer broader third-party import compatibility.
+1. [x] Set Phase 0 defaults: macOS, Windows, and Linux targets; local/offline sequence processing; GenBank as the primary annotated format; FASTA for basic exchange; third-party formats deferred.
+2. [x] Scaffold Tauri, Rust, and the TypeScript UI; add formatting, linting, focused tests, and CI jobs for supported operating systems.
+3. [~] Add typed Tauri commands, Rust result/error handling, and a TypeScript representation of the GenBank record. Still needed: a documented and enforced cross-language coordinate/command contract, generated or mechanically checked bindings, and an application logging strategy.
+4. [x] Prove GenBank import/export with an annotated circular fixture (including an origin-spanning feature) and basic FASTA exchange. Tests verify GenBank record round-trip equality and malformed/multiple-record errors. The initial implementation intentionally supports one record per file; broader third-party import remains deferred.
 
-**Exit criteria:** a packaged desktop shell opens on each target OS; Rust core tests run independently; GenBank records can be imported, displayed, and exported without silent loss of supported annotations. Broad third-party format import is not an MVP gate.
+**Exit criteria — partial:** Rust core tests run independently and pass; GenBank records can be imported, displayed, and exported in the single-record proof of concept without loss of data represented by the parser model. A macOS `.app` bundle builds, but it has not been smoke-tested after launch. Windows and Linux packaging are configured in CI but have not yet been run or verified. Therefore the full cross-platform exit criteria are not yet met; broad third-party format import is not an MVP gate.
 
 ### Phase 1 — Sequence documents and navigation
 
